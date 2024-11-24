@@ -1,0 +1,9 @@
+langchain
+langchain-openai
+langgraph
+mako
+python-dotenv
+requests
+requests-ratelimiter    
+pytest
+responses

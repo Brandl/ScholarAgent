@@ -1,0 +1,6 @@
+.env
+.pytest_cache
+.pyc
+.DS_Store
+.venv
+.python-version
