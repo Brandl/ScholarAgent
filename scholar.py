@@ -11,8 +11,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
-
-from tools import tool_list
+from langchain_core.messages import AIMessage, ToolMessage
 
 # Load environment variables
 load_dotenv()
@@ -24,6 +23,8 @@ def _set_env(var: str):
 
 _set_env("OPENAI_API_KEY")
 _set_env("S2_API_KEY")
+
+from SemanticScholarAPI import tool_list
 
 # Initialize the ChatOpenAI model
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -73,8 +74,10 @@ You are an AI assistant that helps with literature search and review.
 You can search for papers and authors, retrieve detailed information about papers and authors, and get recommendations.
 Use the provided tools to assist in your tasks.
 
-Please find recent papers on 'machine learning in cyber security' published between 2019 and 2020, and provide a summary.
-Also look at references and citations of the papers.
+Make a plan on how to research the topic 'machine learning in cyber security' and execute the plan.
+Focus on recent papers published between 2023 and 2024. If you find a paper that is relevant also look at the references and citations.
+Look at the papers that are mentioned in the references and citations, maybe they are also relevant.
+After you have gathered enough information, provide a summary of the research and the most relevant papers.
 """).render()
 
 
@@ -92,4 +95,5 @@ for event in  graph.stream(
     stream_mode="values"
 ):
     if "messages" in event: 
+        #if isinstance(event["messages"][-1], AIMessage):
         event["messages"][-1].pretty_print()
