@@ -2,6 +2,11 @@ from langchain_core.tools import tool
 from semanticscholar import SemanticScholar
 import os
 from typing import List
+from pyrate_limiter import Duration, Rate, Limiter
+
+# Create rate limiters
+search_limiter = Limiter(Rate(1, Duration.SECOND*2), max_delay=30000)  # 1 request per second, wait 30 seconds if rate limit is exceeded
+get_limiter = Limiter(Rate(5, Duration.SECOND), max_delay=30000)     # 5 requests per second, wait 30 seconds if rate limit is exceeded
 
 # Updated search_paper tool with more complete output
 @tool
@@ -37,6 +42,7 @@ def search_paper(
     """
     sch = SemanticScholar(api_key=os.environ["S2_API_KEY"])
     try:
+        search_limiter.try_acquire("search")
         results = sch.search_paper(
             query,
             year=year,
@@ -49,31 +55,7 @@ def search_paper(
             sort=sort,
             #match_title=match_title
         )
-        papers_info = []
-        for i, paper in enumerate(results[:limit]):
-            authors = ', '.join([author.name for author in paper.authors]) if paper.authors else 'N/A'
-            fields_of_study = ', '.join(paper.fieldsOfStudy) if paper.fieldsOfStudy else 'N/A'
-            open_access_url = paper.openAccessPdf['url'] if paper.openAccessPdf else 'N/A'
-            info = (
-                f"Paper {i+1}:\n"
-                f"ID: {paper.paperId}\n"
-                f"Title: {paper.title}\n"
-                f"Authors: {authors}\n"
-                f"Abstract: {paper.abstract or 'N/A'}\n"
-                f"Year: {paper.year or 'N/A'}\n"
-                f"Venue: {paper.venue or 'N/A'}\n"
-                f"Publication Types: {', '.join(paper.publicationTypes) if paper.publicationTypes else 'N/A'}\n"
-                f"Fields of Study: {fields_of_study}\n"
-                f"Citation Count: {paper.citationCount or 0}\n"
-                f"Reference Count: {paper.referenceCount or 0}\n"
-                f"Influential Citation Count: {paper.influentialCitationCount or 0}\n"
-                f"Is Open Access: {'Yes' if paper.isOpenAccess else 'No'}\n"
-                f"Open Access PDF: {open_access_url}\n"
-                f"URL: {paper.url}\n"
-                "---"
-            )
-            papers_info.append(info)
-        return '\n'.join(papers_info)
+        return results.items
     except Exception as e:
         return f"Error searching for papers: {str(e)}"
 
@@ -92,27 +74,9 @@ def get_paper(paper_id: str, fields: List[str] = None) -> str:
     """
     sch = SemanticScholar(api_key=os.environ["S2_API_KEY"])
     try:
+        get_limiter.try_acquire("get")
         paper = sch.get_paper(paper_id, fields=fields)
-        authors = ', '.join([author.name for author in paper.authors]) if paper.authors else 'N/A'
-        fields_of_study = ', '.join(paper.fieldsOfStudy) if paper.fieldsOfStudy else 'N/A'
-        open_access_url = paper.openAccessPdf['url'] if paper.openAccessPdf else 'N/A'
-        info = (
-            f"ID: {paper.paperId}\n"
-            f"Title: {paper.title}\n"
-            f"Authors: {authors}\n"
-            f"Abstract: {paper.abstract or 'N/A'}\n"
-            f"Year: {paper.year or 'N/A'}\n"
-            f"Venue: {paper.venue or 'N/A'}\n"
-            f"Publication Types: {', '.join(paper.publicationTypes) if paper.publicationTypes else 'N/A'}\n"
-            f"Fields of Study: {fields_of_study}\n"
-            f"Citation Count: {paper.citationCount or 0}\n"
-            f"Reference Count: {paper.referenceCount or 0}\n"
-            f"Influential Citation Count: {paper.influentialCitationCount or 0}\n"
-            f"Is Open Access: {'Yes' if paper.isOpenAccess else 'No'}\n"
-            f"Open Access PDF: {open_access_url}\n"
-            f"URL: {paper.url}"
-        )
-        return info
+        return paper
     except Exception as e:
         return f"Error retrieving paper: {str(e)}"
 
@@ -131,28 +95,9 @@ def get_paper_citations(paper_id: str, limit: int = 10) -> str:
     """
     sch = SemanticScholar(api_key=os.environ["S2_API_KEY"])
     try:
+        get_limiter.try_acquire("get")
         results = sch.get_paper_citations(paper_id, limit=limit)
-        citations_info = []
-        for i, citation in enumerate(results[:limit]):
-            authors = ', '.join([author.name for author in citation.authors]) if citation.authors else 'N/A'
-            fields_of_study = ', '.join(citation.fieldsOfStudy) if citation.fieldsOfStudy else 'N/A'
-            info = (
-                f"Citation {i+1}:\n"
-                f"ID: {citation.paperId}\n"
-                f"Title: {citation.title}\n"
-                f"Authors: {authors}\n"
-                f"Abstract: {citation.abstract or 'N/A'}\n"
-                f"Year: {citation.year or 'N/A'}\n"
-                f"Venue: {citation.venue or 'N/A'}\n"
-                f"Fields of Study: {fields_of_study}\n"
-                f"Citation Count: {citation.citationCount or 0}\n"
-                f"Reference Count: {citation.referenceCount or 0}\n"
-                f"Influential Citation Count: {citation.influentialCitationCount or 0}\n"
-                f"URL: {citation.url}\n"
-                "---"
-            )
-            citations_info.append(info)
-        return '\n'.join(citations_info)
+        return results.items
     except Exception as e:
         return f"Error retrieving paper citations: {str(e)}"
 
@@ -171,28 +116,9 @@ def get_paper_references(paper_id: str, limit: int = 10) -> str:
     """
     sch = SemanticScholar(api_key=os.environ["S2_API_KEY"])
     try:
+        get_limiter.try_acquire("get")
         results = sch.get_paper_references(paper_id, limit=limit)
-        references_info = []
-        for i, reference in enumerate(results[:limit]):
-            authors = ', '.join([author.name for author in reference.authors]) if reference.authors else 'N/A'
-            fields_of_study = ', '.join(reference.fieldsOfStudy) if reference.fieldsOfStudy else 'N/A'
-            info = (
-                f"Reference {i+1}:\n"
-                f"ID: {reference.paperId}\n"
-                f"Title: {reference.title}\n"
-                f"Authors: {authors}\n"
-                f"Abstract: {reference.abstract or 'N/A'}\n"
-                f"Year: {reference.year or 'N/A'}\n"
-                f"Venue: {reference.venue or 'N/A'}\n"
-                f"Fields of Study: {fields_of_study}\n"
-                f"Citation Count: {reference.citationCount or 0}\n"
-                f"Reference Count: {reference.referenceCount or 0}\n"
-                f"Influential Citation Count: {reference.influentialCitationCount or 0}\n"
-                f"URL: {reference.url}\n"
-                "---"
-            )
-            references_info.append(info)
-        return '\n'.join(references_info)
+        return results.items
     except Exception as e:
         return f"Error retrieving paper references: {str(e)}"
 
@@ -200,10 +126,10 @@ def get_paper_references(paper_id: str, limit: int = 10) -> str:
 @tool
 def search_author(query: str, limit: int = 10) -> str:
     """
-    Searches for authors based on a query string.
+    Searches for authors by their name
 
     Args:
-        query: The search query string.
+        query: The search query string, eg. author name.
         limit: The maximum number of results to return (default 10).
 
     Returns:
@@ -211,23 +137,9 @@ def search_author(query: str, limit: int = 10) -> str:
     """
     sch = SemanticScholar(api_key=os.environ["S2_API_KEY"])
     try:
+        search_limiter.try_acquire("search")
         results = sch.search_author(query, limit=limit)
-        authors_info = []
-        for i, author in enumerate(results[:limit]):
-            affiliations = ', '.join(author.affiliations) if author.affiliations else 'N/A'
-            info = (
-                f"Author {i+1}:\n"
-                f"ID: {author.authorId}\n"
-                f"Name: {author.name}\n"
-                f"Affiliations: {affiliations}\n"
-                f"H-Index: {author.hIndex or 'N/A'}\n"
-                f"Citation Count: {author.citationCount or 0}\n"
-                f"Paper Count: {author.paperCount or 0}\n"
-                f"URL: {author.url}\n"
-                "---"
-            )
-            authors_info.append(info)
-        return '\n'.join(authors_info)
+        return results.items
     except Exception as e:
         return f"Error searching for authors: {str(e)}"
 
@@ -246,19 +158,9 @@ def get_author(author_id: str, fields: List[str] = None) -> str:
     """
     sch = SemanticScholar(api_key=os.environ["S2_API_KEY"])
     try:
+        get_limiter.try_acquire("get")
         author = sch.get_author(author_id, fields=fields)
-        affiliations = ', '.join(author.affiliations) if author.affiliations else 'N/A'
-        info = (
-            f"ID: {author.authorId}\n"
-            f"Name: {author.name}\n"
-            f"Affiliations: {affiliations}\n"
-            f"H-Index: {author.hIndex or 'N/A'}\n"
-            f"Citation Count: {author.citationCount or 0}\n"
-            f"Paper Count: {author.paperCount or 0}\n"
-            f"Homepage: {author.homepage or 'N/A'}\n"
-            f"URL: {author.url}"
-        )
-        return info
+        return author
     except Exception as e:
         return f"Error retrieving author: {str(e)}"
 
@@ -277,32 +179,9 @@ def get_author_papers(author_id: str, limit: int = 10) -> str:
     """
     sch = SemanticScholar(api_key=os.environ["S2_API_KEY"])
     try:
+        get_limiter.try_acquire("get")
         results = sch.get_author_papers(author_id, limit=limit)
-        papers_info = []
-        for i, paper in enumerate(results[:limit]):
-            authors = ', '.join([author.name for author in paper.authors]) if paper.authors else 'N/A'
-            fields_of_study = ', '.join(paper.fieldsOfStudy) if paper.fieldsOfStudy else 'N/A'
-            open_access_url = paper.openAccessPdf['url'] if paper.openAccessPdf else 'N/A'
-            info = (
-                f"Paper {i+1}:\n"
-                f"ID: {paper.paperId}\n"
-                f"Title: {paper.title}\n"
-                f"Authors: {authors}\n"
-                f"Abstract: {paper.abstract or 'N/A'}\n"
-                f"Year: {paper.year or 'N/A'}\n"
-                f"Venue: {paper.venue or 'N/A'}\n"
-                f"Publication Types: {', '.join(paper.publicationTypes) if paper.publicationTypes else 'N/A'}\n"
-                f"Fields of Study: {fields_of_study}\n"
-                f"Citation Count: {paper.citationCount or 0}\n"
-                f"Reference Count: {paper.referenceCount or 0}\n"
-                f"Influential Citation Count: {paper.influentialCitationCount or 0}\n"
-                f"Is Open Access: {'Yes' if paper.isOpenAccess else 'No'}\n"
-                f"Open Access PDF: {open_access_url}\n"
-                f"URL: {paper.url}\n"
-                "---"
-            )
-            papers_info.append(info)
-        return '\n'.join(papers_info)
+        return results.items
     except Exception as e:
         return f"Error retrieving author's papers: {str(e)}"
 

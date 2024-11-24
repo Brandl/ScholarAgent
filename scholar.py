@@ -11,12 +11,12 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
-
+from langchain_core.messages import AIMessage
 from tools import tool_list
 
 # Load environment variables
 load_dotenv()
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 def _set_env(var: str):
     if not os.environ.get(var):
@@ -67,15 +67,21 @@ graph_builder.add_edge("chatbot", END)
 memory = MemorySaver()
 graph = graph_builder.compile(checkpointer=memory)
 
+topic = "Using Large Language Models for Defence of Corporate Networks and Blue Teaming"
 # Start our agent and give it the initial prompt
 template = Template("""
 You are an AI assistant that helps with literature search and review.
 You can search for papers and authors, retrieve detailed information about papers and authors, and get recommendations.
 Use the provided tools to assist in your tasks.
 
-Please find recent papers on 'machine learning in cyber security' published between 2019 and 2020, and provide a summary.
-Also look at references and citations of the papers.
-""").render()
+I want you to research the topic: ${topic}
+Make a plan where you first brainstorm the most important aspects of the topic.
+Formulate search strings, which are highly likely to lead to the best results.
+Then, you will search for papers and authors that are relevant to the topic, ideally with a high citation count.
+After finding papers, I want you to query the references to other papers to find related work.
+Finally, you will summarize the most important findings and provide a list of references for further reading.
+Also just give me a plain list of papers you found in the end ordered by relevance.
+""").render(topic=topic)
 
 
 # Process the events and print outputs, ask for approval before running tools   
@@ -92,4 +98,5 @@ for event in  graph.stream(
     stream_mode="values"
 ):
     if "messages" in event: 
-        event["messages"][-1].pretty_print()
+        if isinstance(event["messages"][-1], AIMessage):
+            event["messages"][-1].pretty_print()
