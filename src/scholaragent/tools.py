@@ -40,8 +40,11 @@ def _build_schema(ep: Endpoint) -> type[BaseModel]:
         fields["limit"] = (
             Optional[int],
             Field(
-                default=ep.max_limit,
-                description=f"Number of results to return (max {ep.max_limit}).",
+                default=ep.default_limit,
+                description=(
+                    f"Number of results to return (default {ep.default_limit}, "
+                    f"max {ep.max_limit}). Use small limits unless you truly need more."
+                ),
             ),
         )
 

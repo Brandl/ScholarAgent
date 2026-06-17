@@ -17,3 +17,13 @@ def test_endpoints_by_name_matches():
     assert len(ENDPOINTS_BY_NAME) == len(ENDPOINTS)
     for ep in ENDPOINTS:
         assert ENDPOINTS_BY_NAME[ep.name] is ep
+
+
+def test_default_paper_fields_are_api_friendly():
+    """Default fields should avoid heavy relationship/embedding payloads."""
+    fields = set(DEFAULT_FIELDS["paper"].split(","))
+    assert "citations" not in fields
+    assert "references" not in fields
+    assert "embedding" not in fields
+    assert "title" in fields
+    assert "citationCount" in fields

@@ -19,3 +19,10 @@ def test_tool_count():
     tools = create_tools(client)
     # 11 endpoints + 1 download tool = 12
     assert len(tools) == 12
+
+
+def test_paginated_tools_default_to_small_limits():
+    client = SemanticScholarClient()
+    tools = {tool.name: tool for tool in create_tools(client)}
+    schema = tools["get_paper_citations"].args_schema
+    assert schema.model_fields["limit"].default == 10

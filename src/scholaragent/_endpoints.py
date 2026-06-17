@@ -7,7 +7,7 @@ are all derived from this registry, eliminating boilerplate.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,7 @@ class Endpoint:
     query_params: tuple[str, ...] = ()
     paginated: bool = False
     max_limit: int = 100
+    default_limit: int = 10
     filters: tuple[str, ...] = ()
 
 
@@ -28,8 +29,7 @@ DEFAULT_FIELDS: dict[str, str] = {
     "paper": (
         "paperId,corpusId,externalIds,url,title,abstract,venue,publicationVenue,year,"
         "referenceCount,citationCount,influentialCitationCount,isOpenAccess,openAccessPdf,"
-        "fieldsOfStudy,s2FieldsOfStudy,publicationTypes,publicationDate,journal,"
-        "citationStyles,authors,citations,references,embedding,tldr"
+        "fieldsOfStudy,s2FieldsOfStudy,publicationTypes,publicationDate,journal,authors,tldr"
     ),
     "author": (
         "authorId,externalIds,url,name,affiliations,homepage,paperCount,citationCount,hIndex,papers"

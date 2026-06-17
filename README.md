@@ -48,14 +48,35 @@ export S2_API_KEY=your_semantic_scholar_api_key
 export OPENAI_API_KEY=your_openai_api_key  # only needed for the agent
 ```
 
-## Rate Limiting
+## Rate Limiting and API Kindness
 
-The Semantic Scholar API enforces a rate limit of **1 request per second**, cumulative across all endpoints. ScholarAgent respects this automatically — every request goes through a shared rate-limited session. If the API returns `429` (rate limited) or `500` (server error), the client backs off and retries.
+Semantic Scholar asks clients to be conservative with request volume. ScholarAgent is intentionally polite by default:
+
+- default rate: **0.5 requests/second** (one request every two seconds), below the public 1 request/second guidance;
+- lean default fields that avoid heavy `citations`, `references`, and `embedding` payloads unless you explicitly request them;
+- small default page sizes (`limit=10`) for paginated endpoints;
+- exponential backoff on `429` and transient `5xx` responses;
+- `Retry-After` headers are respected when present.
 
 You can adjust the rate when constructing the client:
 
 ```python
-client = SemanticScholarClient(api_key="...", requests_per_second=1)  # default
+client = SemanticScholarClient(api_key="...", requests_per_second=0.5)  # default
+```
+
+Environment variables for CLI/agent tuning:
+
+```bash
+S2_REQUESTS_PER_SECOND=0.5
+S2_MAX_RETRIES=3
+S2_INITIAL_BACKOFF_SECONDS=5
+S2_MAX_BACKOFF_SECONDS=120
+```
+
+Check current API availability with one tiny request:
+
+```bash
+scholaragent status
 ```
 
 ---
@@ -152,17 +173,19 @@ This is what the CLI's `api` subcommand uses under the hood.
 
 ### Selecting Fields
 
-By default, the client requests a comprehensive set of fields for each endpoint category. You can override this to reduce payload size and improve response times:
+By default, the client requests a lean set of fields for each endpoint category. You can override this when you need more metadata, but prefer small field lists for searches and bulk operations:
 
 ```python
 # Only get title and citation count
 client.search_papers("transformers", fields="title,citationCount", limit=10)
 
-# Paper fields: paperId, corpusId, externalIds, url, title, abstract, venue,
+# Default paper fields: paperId, corpusId, externalIds, url, title, abstract, venue,
 #   publicationVenue, year, referenceCount, citationCount, influentialCitationCount,
 #   isOpenAccess, openAccessPdf, fieldsOfStudy, s2FieldsOfStudy, publicationTypes,
-#   publicationDate, journal, citationStyles, authors, citations, references,
-#   embedding, tldr
+#   publicationDate, journal, authors, tldr
+#
+# Heavy fields such as citations, references, and embedding are intentionally
+# not requested by default; ask for them explicitly only when needed.
 
 # Author fields: authorId, externalIds, url, name, affiliations, homepage,
 #   paperCount, citationCount, hIndex, papers
@@ -211,6 +234,9 @@ Call any endpoint by name with arbitrary key=value parameters. Use `scholaragent
 ```bash
 # List all endpoints and their parameters
 scholaragent endpoints
+
+# Check API availability with one tiny request
+scholaragent status
 
 # Call any endpoint directly
 scholaragent api search_papers query="neural networks" limit=5 year=2024

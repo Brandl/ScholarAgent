@@ -10,16 +10,26 @@ import sys
 from dotenv import load_dotenv
 
 from scholaragent._endpoints import ENDPOINTS
-from scholaragent.client import SemanticScholarClient
+from scholaragent.client import RetryConfig, SemanticScholarClient
 
 
-def _get_client() -> SemanticScholarClient:
+def _get_client(*, require_key: bool = True) -> SemanticScholarClient:
     load_dotenv()
     api_key = os.environ.get("S2_API_KEY")
-    if not api_key:
+    if require_key and not api_key:
         print("Error: S2_API_KEY not set. Add it to .env or export it.", file=sys.stderr)
         sys.exit(1)
-    return SemanticScholarClient(api_key=api_key)
+    requests_per_second = float(os.environ.get("S2_REQUESTS_PER_SECOND", "0.5"))
+    retry_config = RetryConfig(
+        max_retries=int(os.environ.get("S2_MAX_RETRIES", "3")),
+        initial_backoff_seconds=float(os.environ.get("S2_INITIAL_BACKOFF_SECONDS", "5")),
+        max_backoff_seconds=float(os.environ.get("S2_MAX_BACKOFF_SECONDS", "120")),
+    )
+    return SemanticScholarClient(
+        api_key=api_key,
+        requests_per_second=requests_per_second,
+        retry_config=retry_config,
+    )
 
 
 def _print_json(data: dict) -> None:
@@ -105,6 +115,12 @@ def _cmd_agent(args: argparse.Namespace) -> None:
     run_agent(graph, prompt)
 
 
+def _cmd_status(args: argparse.Namespace) -> None:
+    """Make one tiny request to check Semantic Scholar availability."""
+    client = _get_client(require_key=False)
+    _print_json(client.check_status())
+
+
 def _cmd_endpoints(args: argparse.Namespace) -> None:
     """List available API endpoints."""
     for ep in ENDPOINTS:
@@ -162,6 +178,9 @@ def main():
     p_agent.add_argument("--years", help="Year range, e.g. '2023-2024'")
     p_agent.add_argument("--temperature", type=float, default=0, help="LLM temperature (default: 0)")
 
+    # scholaragent status
+    sub.add_parser("status", help="Check Semantic Scholar availability with one tiny request")
+
     # scholaragent endpoints
     sub.add_parser("endpoints", help="List all available API endpoints")
 
@@ -174,6 +193,7 @@ def main():
         "download": _cmd_download,
         "api": _cmd_api,
         "agent": _cmd_agent,
+        "status": _cmd_status,
         "endpoints": _cmd_endpoints,
     }
 
